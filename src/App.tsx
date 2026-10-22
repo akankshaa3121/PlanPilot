@@ -1,27 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { 
-  Calendar, 
-  MapPin, 
-  Users, 
-  IndianRupee, 
-  Sparkles, 
-  Printer, 
-  Share2, 
-  ArrowLeft, 
-  Check, 
-  Lightbulb, 
-  Layers, 
-  Clock, 
-  CheckSquare, 
-  Flame,
-  Download,
+import {
+  Calendar,
+  MapPin,
+  Users,
+  IndianRupee,
+  Sparkles,
+  Printer,
+  Share2,
+  ArrowLeft,
+  Check,
+  Lightbulb,
+  Layers,
+  Clock,
+  CheckSquare,
+  Receipt,
   PartyPopper,
-  Receipt
 } from 'lucide-react';
 
-import type { EventInput, EventPlan, PaymentEntry, PlanB, WhatIfScenarioKey } from './types/plan';
-import { compressTimeline, formatINR, formatReadableDate, getDaysRemaining } from './utils/formatters';
+import type {
+  EventInput,
+  EventPlan,
+  PaymentEntry,
+  PlanB,
+  WhatIfScenarioKey,
+} from './types/plan';
+
+import {
+  compressTimeline,
+  formatINR,
+  formatReadableDate,
+  getDaysRemaining,
+} from './utils/formatters';
+
 import { Header, PRESET_EVENTS } from './components/Header';
 import { EventForm } from './components/EventForm';
 import { BudgetSection } from './components/BudgetSection';
@@ -35,179 +46,257 @@ import { ErrorView } from './components/ErrorView';
 import { ReadinessScore } from './components/ReadinessScore';
 
 export default function App() {
-  const [currentInput, setCurrentInput] = useState<EventInput>(PRESET_EVENTS[0].data);
+  const [currentInput, setCurrentInput] = useState<EventInput>(
+    PRESET_EVENTS[0].data
+  );
+
   const [plan, setPlan] = useState<EventPlan | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'whatif' | 'budget' | 'spending' | 'quote' | 'timeline' | 'vendors' | 'ideas'>('all');
+
+  const [activeTab, setActiveTab] = useState<
+    | 'all'
+    | 'whatif'
+    | 'budget'
+    | 'spending'
+    | 'quote'
+    | 'timeline'
+    | 'vendors'
+    | 'ideas'
+  >('all');
+
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [showFinishedSummary, setShowFinishedSummary] = useState(false);
 
-  // What If? Plan B State
+  // What-if Plan B state
   const [activePlanB, setActivePlanB] = useState<PlanB | null>(null);
-  const [isLoadingPlanB, setIsLoadingPlanB] = useState<boolean>(false);
-  const [selectedScenarioKey, setSelectedScenarioKey] = useState<string | null>(null);
+  const [isLoadingPlanB, setIsLoadingPlanB] = useState(false);
+  const [selectedScenarioKey, setSelectedScenarioKey] =
+    useState<string | null>(null);
 
-  // Ticked tasks & vendor booking state (persisted to localStorage)
-  const [completedTasks, setCompletedTasks] = useState<{ [id: string]: boolean }>({});
-  const [completedVendors, setCompletedVendors] = useState<{ [id: string]: boolean }>({});
+  // Completed tasks and vendors
+  const [completedTasks, setCompletedTasks] = useState<{
+    [id: string]: boolean;
+  }>({});
 
-  // Payments / Real spending state (persisted to localStorage)
+  const [completedVendors, setCompletedVendors] = useState<{
+    [id: string]: boolean;
+  }>({});
+
+  // Spending tracker
   const [payments, setPayments] = useState<PaymentEntry[]>([]);
 
-  const getTaskStorageKey = (p: EventPlan) => `planpilot_tasks_${p.input.eventType}_${p.input.eventDate}`;
-  const getVendorStorageKey = (p: EventPlan) => `planpilot_vendors_${p.input.eventType}_${p.input.eventDate}`;
-  const getPaymentStorageKey = (p: EventPlan) => `planpilot_payments_${p.input.eventType}_${p.input.eventDate}`;
+  const getTaskStorageKey = (p: EventPlan) =>
+    `planpilot_tasks_${p.input.eventType}_${p.input.eventDate}`;
 
-  // Restore last plan from localStorage if available
+  const getVendorStorageKey = (p: EventPlan) =>
+    `planpilot_vendors_${p.input.eventType}_${p.input.eventDate}`;
+
+  const getPaymentStorageKey = (p: EventPlan) =>
+    `planpilot_payments_${p.input.eventType}_${p.input.eventDate}`;
+
+  // Restore saved plan
   useEffect(() => {
     try {
       const saved = localStorage.getItem('planpilot_saved_plan');
+
       if (saved) {
         const parsed: EventPlan = JSON.parse(saved);
+
         if (parsed.timeline && parsed.input?.eventDate) {
-          parsed.timeline = compressTimeline(parsed.timeline, parsed.input.eventDate);
+          parsed.timeline = compressTimeline(
+            parsed.timeline,
+            parsed.input.eventDate
+          );
         }
+
         setPlan(parsed);
+
         if (parsed.input) {
           setCurrentInput(parsed.input);
         }
       }
     } catch {
-      // ignore
+      // Ignore invalid saved data
     }
   }, []);
 
-  // Restore ticked tasks, vendors & payments whenever active plan changes
+  // Restore completed tasks, vendors and payments
   useEffect(() => {
-    if (plan) {
-      try {
-        const taskKey = getTaskStorageKey(plan);
-        const savedTasks = localStorage.getItem(taskKey);
-        if (savedTasks) {
-          setCompletedTasks(JSON.parse(savedTasks));
-        } else {
-          setCompletedTasks({});
-        }
+    if (!plan) return;
 
-        const vendorKey = getVendorStorageKey(plan);
-        const savedVendors = localStorage.getItem(vendorKey);
-        if (savedVendors) {
-          setCompletedVendors(JSON.parse(savedVendors));
-        } else {
-          setCompletedVendors({});
-        }
+    try {
+      const savedTasks = localStorage.getItem(getTaskStorageKey(plan));
+      setCompletedTasks(savedTasks ? JSON.parse(savedTasks) : {});
 
-        const payKey = getPaymentStorageKey(plan);
-        const savedPayments = localStorage.getItem(payKey);
-        if (savedPayments) {
-          setPayments(JSON.parse(savedPayments));
-        } else {
-          setPayments([]);
-        }
-      } catch {
-        // ignore
-      }
+      const savedVendors = localStorage.getItem(
+        getVendorStorageKey(plan)
+      );
+      setCompletedVendors(savedVendors ? JSON.parse(savedVendors) : {});
+
+      const savedPayments = localStorage.getItem(
+        getPaymentStorageKey(plan)
+      );
+      setPayments(savedPayments ? JSON.parse(savedPayments) : []);
+    } catch {
+      // Ignore invalid saved data
     }
   }, [plan?.id, plan?.input?.eventType, plan?.input?.eventDate]);
 
+  // Toggle task completion
   const handleToggleTask = (taskId: string) => {
     if (!plan) return;
+
     setCompletedTasks((prev) => {
-      const next = { ...prev, [taskId]: !prev[taskId] };
+      const next = {
+        ...prev,
+        [taskId]: !prev[taskId],
+      };
+
       try {
-        localStorage.setItem(getTaskStorageKey(plan), JSON.stringify(next));
+        localStorage.setItem(
+          getTaskStorageKey(plan),
+          JSON.stringify(next)
+        );
       } catch {
-        // ignore
+        // Ignore storage errors
       }
+
       return next;
     });
   };
 
+  // Toggle vendor completion
   const handleToggleVendor = (vendorId: string) => {
     if (!plan) return;
+
     setCompletedVendors((prev) => {
-      const next = { ...prev, [vendorId]: !prev[vendorId] };
+      const next = {
+        ...prev,
+        [vendorId]: !prev[vendorId],
+      };
+
       try {
-        localStorage.setItem(getVendorStorageKey(plan), JSON.stringify(next));
+        localStorage.setItem(
+          getVendorStorageKey(plan),
+          JSON.stringify(next)
+        );
       } catch {
-        // ignore
+        // Ignore storage errors
       }
+
       return next;
     });
   };
 
+  // Reset readiness checklist
   const handleResetReadiness = () => {
     if (!plan) return;
+
     try {
       localStorage.removeItem(getTaskStorageKey(plan));
       localStorage.removeItem(getVendorStorageKey(plan));
     } catch {
-      // ignore
+      // Ignore storage errors
     }
+
     setCompletedTasks({});
     setCompletedVendors({});
   };
 
-  const handleAddPayment = (newPayment: Omit<PaymentEntry, 'id' | 'createdAt'>) => {
+  // Add payment
+  const handleAddPayment = (
+    newPayment: Omit<PaymentEntry, 'id' | 'createdAt'>
+  ) => {
     if (!plan) return;
+
     const entry: PaymentEntry = {
       ...newPayment,
-      id: 'pay_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      id:
+        'pay_' +
+        Date.now() +
+        '_' +
+        Math.random().toString(36).substring(2, 7),
       createdAt: new Date().toISOString(),
     };
+
     setPayments((prev) => {
       const next = [entry, ...prev];
+
       try {
-        localStorage.setItem(getPaymentStorageKey(plan), JSON.stringify(next));
+        localStorage.setItem(
+          getPaymentStorageKey(plan),
+          JSON.stringify(next)
+        );
       } catch {
-        // ignore
+        // Ignore storage errors
       }
+
       return next;
     });
   };
 
+  // Delete payment
   const handleDeletePayment = (paymentId: string) => {
     if (!plan) return;
+
     setPayments((prev) => {
-      const next = prev.filter((p) => p.id !== paymentId);
+      const next = prev.filter((payment) => payment.id !== paymentId);
+
       try {
-        localStorage.setItem(getPaymentStorageKey(plan), JSON.stringify(next));
+        localStorage.setItem(
+          getPaymentStorageKey(plan),
+          JSON.stringify(next)
+        );
       } catch {
-        // ignore
+        // Ignore storage errors
       }
+
       return next;
     });
   };
 
+  // Clear payments
   const handleClearPayments = () => {
     if (!plan) return;
+
     try {
       localStorage.removeItem(getPaymentStorageKey(plan));
     } catch {
-      // ignore
+      // Ignore storage errors
     }
+
     setPayments([]);
   };
 
+  // Celebration effect
   const triggerConfetti = () => {
     try {
       confetti({
         particleCount: 60,
         spread: 70,
         origin: { y: 0.6 },
-        colors: ['#0B1F4B', '#2563EB', '#0284c7', '#38bdf8', '#0d9488'],
+        colors: [
+          '#0B1F4B',
+          '#2563EB',
+          '#0284c7',
+          '#38bdf8',
+          '#0d9488',
+        ],
       });
     } catch {
-      // ignore
+      // Ignore animation errors
     }
   };
 
+  // Generate event plan
   const generatePlan = async (input: EventInput) => {
     setIsLoading(true);
     setError(null);
     setRetryMessage(null);
     setCurrentInput(input);
+    setShowFinishedSummary(false);
 
     const MAX_RETRIES = 3;
     let attempt = 0;
@@ -217,25 +306,36 @@ export default function App() {
       try {
         const res = await fetch('/api/generate-plan', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify(input),
         });
 
         if (!res.ok) {
           const status = res.status;
           const errData = await res.json().catch(() => ({}));
-          const errMsg = errData.error || `Server responded with status ${status}`;
+          const errMsg =
+            errData.error || `Server responded with status ${status}`;
+
           const isBusy =
             status === 503 ||
             status === 429 ||
-            /503|429|high demand|busy|overloaded|resource exhausted/i.test(errMsg);
+            /503|429|high demand|busy|overloaded|resource exhausted/i.test(
+              errMsg
+            );
 
           if (isBusy && attempt < MAX_RETRIES) {
             attempt++;
             setRetryMessage('Gemini is busy, trying again...');
-            await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+
+            await new Promise((resolve) =>
+              setTimeout(resolve, 1500 * attempt)
+            );
+
             continue;
           }
+
           throw new Error(errMsg);
         }
 
@@ -243,15 +343,30 @@ export default function App() {
         break;
       } catch (err: any) {
         const errMsg = String(err?.message || '');
-        const isBusy = /503|429|high demand|busy|overloaded|resource exhausted/i.test(errMsg);
+
+        const isBusy =
+          /503|429|high demand|busy|overloaded|resource exhausted/i.test(
+            errMsg
+          );
+
         if (isBusy && attempt < MAX_RETRIES) {
           attempt++;
           setRetryMessage('Gemini is busy, trying again...');
-          await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1500 * attempt)
+          );
+
           continue;
         }
+
         console.error('Plan generation failed:', err);
-        setError(errMsg || 'Something went wrong while communicating with Gemini.');
+
+        setError(
+          errMsg ||
+            'Something went wrong while communicating with Gemini.'
+        );
+
         setIsLoading(false);
         setRetryMessage(null);
         return;
@@ -259,62 +374,79 @@ export default function App() {
     }
 
     if (!planData) {
-      setError('Could not generate plan after retrying. Please try again in a few moments.');
+      setError(
+        'Could not generate a plan after retrying. Please try again.'
+      );
       setIsLoading(false);
       setRetryMessage(null);
       return;
     }
 
-    // Timeline compression and deduplication
+    // Compress the generated timeline
     if (planData.timeline && planData.input?.eventDate) {
-      planData.timeline = compressTimeline(planData.timeline, planData.input.eventDate);
+      planData.timeline = compressTimeline(
+        planData.timeline,
+        planData.input.eventDate
+      );
     }
 
-    // 1) When a new plan is generated, clear all saved ticks so the Readiness Score starts at 0.
+    // Reset completion state for the new plan
     setCompletedTasks({});
     setCompletedVendors({});
+
     try {
       localStorage.removeItem(getTaskStorageKey(planData));
       localStorage.removeItem(getVendorStorageKey(planData));
     } catch {
-      // ignore
+      // Ignore storage errors
     }
 
     setPlan(planData);
     setActiveTab('all');
 
     try {
-      localStorage.setItem('planpilot_saved_plan', JSON.stringify(planData));
+      localStorage.setItem(
+        'planpilot_saved_plan',
+        JSON.stringify(planData)
+      );
     } catch {
-      // ignore
+      // Ignore storage errors
     }
 
-    // Small celebratory confetti
     setTimeout(triggerConfetti, 400);
-
-    // Scroll smoothly to top of plan
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
     setIsLoading(false);
     setRetryMessage(null);
   };
 
+  // Select preset event
   const handleSelectPreset = (preset: EventInput) => {
+    setShowFinishedSummary(false);
     setCurrentInput(preset);
     setPlan(null);
     setActivePlanB(null);
     setError(null);
   };
 
+  // Return to event form
   const handleResetToForm = () => {
+    setShowFinishedSummary(false);
     setPlan(null);
     setActivePlanB(null);
     setError(null);
   };
 
-  const handleGeneratePlanB = async (scenarioTitle: string, scenarioKey: WhatIfScenarioKey) => {
+  // Generate What-if Plan B
+  const handleGeneratePlanB = async (
+    scenarioTitle: string,
+    scenarioKey: WhatIfScenarioKey
+  ) => {
     if (!plan) return;
+
     setIsLoadingPlanB(true);
     setSelectedScenarioKey(scenarioKey);
+
     const MAX_RETRIES = 3;
     let attempt = 0;
 
@@ -322,7 +454,9 @@ export default function App() {
       try {
         const res = await fetch('/api/generate-plan-b', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
             originalPlan: plan,
             scenarioTitle,
@@ -333,7 +467,9 @@ export default function App() {
         if (!res.ok) {
           const status = res.status;
           const errData = await res.json().catch(() => ({}));
-          const errMsg = errData.error || `Server responded with ${status}`;
+          const errMsg =
+            errData.error || `Server responded with ${status}`;
+
           const isBusy =
             status === 503 ||
             status === 429 ||
@@ -341,37 +477,59 @@ export default function App() {
 
           if (isBusy && attempt < MAX_RETRIES) {
             attempt++;
-            await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+
+            await new Promise((resolve) =>
+              setTimeout(resolve, 1500 * attempt)
+            );
+
             continue;
           }
+
           throw new Error(errMsg);
         }
 
         const planBData: PlanB = await res.json();
-        setActivePlanB(planBData);
 
-        // Trigger celebration confetti for successful Plan B generation
+        setActivePlanB(planBData);
         setTimeout(triggerConfetti, 350);
 
-        // Smooth scroll to What-If section
         const el = document.getElementById('whatif-section');
+
         if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          el.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          });
         }
+
         break;
       } catch (err: any) {
         const errMsg = String(err?.message || '');
-        const isBusy = /503|429|high demand|busy|overloaded/i.test(errMsg);
+
+        const isBusy =
+          /503|429|high demand|busy|overloaded/i.test(errMsg);
+
         if (isBusy && attempt < MAX_RETRIES) {
           attempt++;
-          await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1500 * attempt)
+          );
+
           continue;
         }
+
         console.error('Plan B generation failed:', err);
-        alert(err?.message || 'Could not simulate Plan B right now. Please try again.');
+
+        alert(
+          err?.message ||
+            'Could not simulate Plan B right now. Please try again.'
+        );
+
         break;
       }
     }
+
     setIsLoadingPlanB(false);
     setSelectedScenarioKey(null);
   };
@@ -380,74 +538,140 @@ export default function App() {
     setActivePlanB(null);
   };
 
-  const handleCopyFullPlan = () => {
+  // Copy full plan
+  const handleCopyFullPlan = async () => {
     if (!plan) return;
+
     let text = `🎉 *${plan.title}* - PlanPilot Master Plan\n`;
     text += `"${plan.tagline}"\n\n`;
     text += `📍 Location: ${plan.input.city}, India\n`;
     text += `📅 Date: ${formatReadableDate(plan.input.eventDate)}\n`;
-    text += `👥 Guests: ${plan.input.guests} | 💰 Budget: ${formatINR(plan.totalBudget)}\n`;
+    text += `👥 Guests: ${plan.input.guests} | 💰 Budget: ${formatINR(
+      plan.totalBudget
+    )}\n`;
     text += `✨ Vibe: ${plan.input.vibe}\n\n`;
+
     text += `💡 *Mentor's Golden Rule:*\n${plan.topOrganizerTip}\n\n`;
 
-    text += `📊 *1. BUDGET BREAKDOWN (Exact Sum: ${formatINR(plan.totalBudget)}):*\n`;
-    plan.budgetCategories.forEach((c) => {
-      text += `• ${c.name}: ${formatINR(c.amount)} (${c.percentage}%)\n  Tip: ${c.tips}\n`;
-    });
-    text += `\n`;
+    text += `📊 *1. BUDGET BREAKDOWN:*\n`;
 
+    plan.budgetCategories.forEach((category) => {
+      text += `• ${category.name}: ${formatINR(category.amount)} (${category.percentage}%)\n`;
+      text += `  Tip: ${category.tips}\n`;
+    });
+
+    text += '\n';
     text += `⏳ *2. BACKWARD COUNTDOWN TIMELINE:*\n`;
-    plan.timeline.forEach((m) => {
-      text += `• ${m.label} (${m.targetDate}): ${m.stage}\n`;
-      m.tasks.forEach((t) => {
-        text += `   - [ ] ${t.title}: ${t.description}\n`;
+
+    plan.timeline.forEach((milestone) => {
+      text += `• ${milestone.label} (${milestone.targetDate}): ${milestone.stage}\n`;
+
+      milestone.tasks.forEach((task) => {
+        text += `   - [ ] ${task.title}: ${task.description}\n`;
       });
     });
-    text += `\n`;
 
-    text += `📋 *3. VENDOR CHECKLIST & 3 QUESTIONS:*\n`;
-    plan.vendorChecklist.forEach((v) => {
-      text += `• ${v.vendorType} (Benchmark: ${v.benchmarkCost})\n`;
-      v.questions.forEach((q, idx) => {
-        text += `   Q${idx + 1}: ${q}\n`;
+    text += '\n';
+    text += `📋 *3. VENDOR CHECKLIST:*\n`;
+
+    plan.vendorChecklist.forEach((vendor) => {
+      text += `• ${vendor.vendorType} (Benchmark: ${vendor.benchmarkCost})\n`;
+
+      vendor.questions.forEach((question, index) => {
+        text += `   Q${index + 1}: ${question}\n`;
       });
-      text += `   Pro-Tip: ${v.organizerTip}\n`;
-    });
-    text += `\n`;
 
-    text += `💡 *4. 5 PERSONALIZED CREATIVE IDEAS:*\n`;
-    plan.ideas.forEach((idea, idx) => {
-      text += `${idx + 1}. [${idea.category}] ${idea.title}\n   ${idea.description}\n   Budget DIY Hack: ${idea.budgetFriendlyHack}\n`;
+      text += `   Pro-Tip: ${vendor.organizerTip}\n`;
     });
 
-    navigator.clipboard.writeText(text);
-    setCopiedSummary(true);
-    setTimeout(() => setCopiedSummary(false), 3000);
+    text += '\n';
+    text += `💡 *4. PERSONALIZED CREATIVE IDEAS:*\n`;
+
+    plan.ideas.forEach((idea, index) => {
+      text += `${index + 1}. [${idea.category}] ${idea.title}\n`;
+      text += `   ${idea.description}\n`;
+      text += `   Budget DIY Hack: ${idea.budgetFriendlyHack}\n`;
+    });
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedSummary(true);
+
+      setTimeout(() => {
+        setCopiedSummary(false);
+      }, 3000);
+    } catch {
+      alert(
+        'Could not copy automatically. Please use Print / Save PDF instead.'
+      );
+    }
   };
 
   const handlePrint = () => {
     window.print();
   };
 
-  const daysRemaining = plan ? getDaysRemaining(plan.input.eventDate) : 0;
+  // Summary calculations
+  const daysRemaining = plan
+    ? getDaysRemaining(plan.input.eventDate)
+    : 0;
 
-  const hasSpendingWarning = plan ? plan.budgetCategories.some((cat) => {
-    const spent = payments
-      .filter((p) => p.categoryId === cat.id)
-      .reduce((sum, p) => sum + p.amount, 0);
-    return cat.amount > 0 && spent / cat.amount >= 0.8;
-  }) : false;
+  const totalTaskCount = plan
+    ? plan.timeline.reduce(
+        (total, milestone) => total + milestone.tasks.length,
+        0
+      )
+    : 0;
+
+  const completedTaskCount = plan
+    ? plan.timeline.reduce(
+        (total, milestone) =>
+          total +
+          milestone.tasks.filter((task) => completedTasks[task.id]).length,
+        0
+      )
+    : 0;
+
+  const completedVendorCount = plan
+    ? plan.vendorChecklist.filter(
+        (vendor) => completedVendors[vendor.id]
+      ).length
+    : 0;
+
+  const totalReadinessItems = totalTaskCount + (plan?.vendorChecklist.length ?? 0);
+
+  const readinessScore =
+    totalReadinessItems > 0
+      ? Math.round(
+          ((completedTaskCount + completedVendorCount) /
+            totalReadinessItems) *
+            100
+        )
+      : 0;
+
+  const totalSpent = payments.reduce(
+    (total, payment) => total + payment.amount,
+    0
+  );
+
+  const hasSpendingWarning = plan
+    ? plan.budgetCategories.some((category) => {
+        const spent = payments
+          .filter((payment) => payment.categoryId === category.id)
+          .reduce((sum, payment) => sum + payment.amount, 0);
+
+        return category.amount > 0 && spent / category.amount >= 0.8;
+      })
+    : false;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFFFF] text-[#111111]">
-      {/* Top Header */}
       <Header
         onSelectPreset={handleSelectPreset}
         onReset={handleResetToForm}
         hasPlan={Boolean(plan)}
       />
 
-      {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {isLoading ? (
           <LoadingView
@@ -462,18 +686,22 @@ export default function App() {
             onBack={() => setError(null)}
           />
         ) : !plan ? (
-          /* Event Form View */
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="text-center space-y-2">
               <span className="text-xs font-extrabold uppercase tracking-widest text-[#0B1F4B] bg-[#F5F7FA] px-3.5 py-1 rounded-full border border-slate-200 inline-flex items-center gap-1.5 shadow-2xs">
                 <Sparkles className="w-3.5 h-3.5 text-[#2563EB]" />
                 Effortless Event Planning in India
               </span>
+
               <h2 className="text-3xl sm:text-4xl font-extrabold text-[#111111] tracking-tight font-display">
                 Plan Your Event Without the Chaos
               </h2>
+
               <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-                Whether organizing your college cultural fest, a 50th birthday dinner, or a startup offsite, PlanPilot crafts your balanced rupee budget, backward timeline, and vendor questions in seconds.
+                Whether organizing your college cultural fest, a 50th
+                birthday dinner, or a startup offsite, PlanPilot crafts
+                your balanced rupee budget, backward timeline, and vendor
+                questions in seconds.
               </p>
             </div>
 
@@ -484,9 +712,8 @@ export default function App() {
             />
           </div>
         ) : (
-          /* Plan Display View */
           <div className="space-y-8">
-            {/* Plan Header Card */}
+            {/* Plan header */}
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 pb-6 border-b border-slate-100">
                 <div className="space-y-2 max-w-3xl">
@@ -494,13 +721,17 @@ export default function App() {
                     <span className="px-3 py-1 rounded-full bg-[#F5F7FA] text-[#0B1F4B] text-xs font-extrabold uppercase tracking-wider border border-slate-200">
                       Master Plan Ready
                     </span>
+
                     <span className="px-3 py-1 rounded-full bg-[#F5F7FA] text-slate-700 text-xs font-bold capitalize border border-slate-200">
                       {plan.input.vibe} Vibe
                     </span>
+
                     {daysRemaining >= 0 && (
                       <span className="px-3 py-1 rounded-full bg-[#F5F7FA] text-[#2563EB] text-xs font-bold flex items-center gap-1 border border-slate-200">
                         <Clock className="w-3 h-3 text-[#2563EB]" />
-                        {daysRemaining === 0 ? 'Happening Today!' : `${daysRemaining} days to go`}
+                        {daysRemaining === 0
+                          ? 'Happening Today!'
+                          : `${daysRemaining} days to go`}
                       </span>
                     )}
                   </div>
@@ -508,15 +739,17 @@ export default function App() {
                   <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#111111] font-display tracking-tight leading-tight">
                     {plan.title}
                   </h2>
+
                   <p className="text-base sm:text-lg font-medium text-slate-700 italic">
                     "{plan.tagline}"
                   </p>
+
                   <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal pt-1">
                     {plan.overview}
                   </p>
                 </div>
 
-                {/* Action Buttons */}
+                {/* Action buttons */}
                 <div className="flex flex-row lg:flex-col gap-2.5 flex-wrap flex-shrink-0 no-print">
                   <button
                     onClick={handleCopyFullPlan}
@@ -552,7 +785,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Quick Summary Grid */}
+              {/* Quick summary */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pt-6">
                 <div className="p-4 rounded-2xl bg-[#F5F7FA] border border-slate-200">
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold mb-1">
@@ -595,11 +828,12 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Mentor Golden Rule Callout */}
+              {/* Mentor's Golden Rule */}
               <div className="mt-6 p-4 rounded-2xl bg-[#F5F7FA] border border-slate-200 text-[#111111] flex items-start gap-3">
                 <div className="w-7 h-7 rounded-xl bg-[#0B1F4B] text-white flex items-center justify-center flex-shrink-0 mt-0.5">
                   <Lightbulb className="w-4 h-4 text-[#2563EB]" />
                 </div>
+
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-[#0B1F4B] block mb-0.5">
                     PlanPilot Mentor Golden Rule:
@@ -611,7 +845,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Readiness Score Progress Ring & Top 3 Bottlenecks */}
+            {/* Readiness score */}
             <div id="readiness-section">
               <ReadinessScore
                 plan={plan}
@@ -623,7 +857,7 @@ export default function App() {
               />
             </div>
 
-            {/* Navigation Section Tabs (Sticky on scroll) */}
+            {/* Navigation tabs */}
             <div className="sticky top-2 z-20 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-1 overflow-x-auto no-print">
               <button
                 onClick={() => setActiveTab('all')}
@@ -663,7 +897,7 @@ export default function App() {
                 }`}
               >
                 <IndianRupee className="w-4 h-4" />
-                <span>1. Budget Split & Chart</span>
+                <span>1. Budget Split &amp; Chart</span>
               </button>
 
               <button
@@ -676,9 +910,14 @@ export default function App() {
               >
                 <Receipt className="w-4 h-4" />
                 <span>Track Spending</span>
+
                 {hasSpendingWarning && (
-                  <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" title="Budget Alert: category > 80% used" />
+                  <span
+                    className="w-2 h-2 rounded-full bg-rose-600 animate-pulse"
+                    title="Budget Alert: category over 80% used"
+                  />
                 )}
+
                 {payments.length > 0 && !hasSpendingWarning && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 text-[#111111] font-bold">
                     {payments.length}
@@ -723,9 +962,8 @@ export default function App() {
               </button>
             </div>
 
-            {/* Render Sections Based on Tab */}
+            {/* Render sections based on selected tab */}
             <div className="space-y-10">
-              {/* "What If?" Plan B Section */}
               {(activeTab === 'all' || activeTab === 'whatif') && (
                 <section id="whatif-section">
                   <WhatIfSection
@@ -738,7 +976,7 @@ export default function App() {
                   />
                 </section>
               )}
-              {/* Section 1: Budget */}
+
               {(activeTab === 'all' || activeTab === 'budget') && (
                 <section id="budget-section">
                   <BudgetSection
@@ -751,7 +989,6 @@ export default function App() {
                 </section>
               )}
 
-              {/* Track Spending Section */}
               {(activeTab === 'all' || activeTab === 'spending') && (
                 <section id="spending-section">
                   <TrackSpendingSection
@@ -765,9 +1002,11 @@ export default function App() {
                 </section>
               )}
 
-              {/* Section 2: Timeline */}
               {(activeTab === 'all' || activeTab === 'timeline') && (
-                <section id="timeline-section" className={activeTab === 'all' ? 'print-page-break' : ''}>
+                <section
+                  id="timeline-section"
+                  className={activeTab === 'all' ? 'print-page-break' : ''}
+                >
                   <TimelineSection
                     timeline={plan.timeline}
                     eventDate={plan.input.eventDate}
@@ -778,9 +1017,11 @@ export default function App() {
                 </section>
               )}
 
-              {/* Section 3: Vendor Checklist */}
               {(activeTab === 'all' || activeTab === 'vendors') && (
-                <section id="vendor-section" className={activeTab === 'all' ? 'print-page-break' : ''}>
+                <section
+                  id="vendor-section"
+                  className={activeTab === 'all' ? 'print-page-break' : ''}
+                >
                   <VendorSection
                     vendors={plan.vendorChecklist}
                     city={plan.input.city}
@@ -790,7 +1031,6 @@ export default function App() {
                 </section>
               )}
 
-              {/* Section 4: 5 Personalized Ideas */}
               {(activeTab === 'all' || activeTab === 'ideas') && (
                 <section id="ideas-section">
                   <IdeasSection
@@ -802,10 +1042,149 @@ export default function App() {
               )}
             </div>
 
-            {/* Bottom Floating Summary / Back to Top */}
+            {/* Finish Plan button */}
+            {(activeTab === 'all' || activeTab === 'ideas') && (
+              <section className="pt-4 pb-2 text-center no-print">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFinishedSummary(true);
+                    triggerConfetti();
+                  }}
+                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-[#0B1F4B] px-8 py-4 text-base font-extrabold text-white shadow-md transition hover:bg-[#142a63] active:scale-[0.98] cursor-pointer"
+                >
+                  <PartyPopper className="h-5 w-5" />
+                  Done, Finish My Plan
+                </button>
+              </section>
+            )}
+
+            {/* Finished plan summary */}
+            {showFinishedSummary && (
+              <section
+                aria-live="polite"
+                className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm"
+              >
+                <div className="mx-auto max-w-4xl space-y-6">
+                  <div className="text-center space-y-2">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5F7FA] text-[#0B1F4B]">
+                      <PartyPopper className="h-6 w-6" />
+                    </div>
+
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-[#0B1F4B]">
+                      Your Plan is Ready!
+                    </h3>
+
+                    <p className="text-sm sm:text-base text-slate-600">
+                      Good luck with your event! 🎉
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="rounded-2xl bg-[#F5F7FA] border border-slate-200 p-4">
+                      <p className="text-xs font-semibold text-slate-500 mb-1">
+                        Event
+                      </p>
+                      <p className="font-bold text-[#111111]">{plan.title}</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#F5F7FA] border border-slate-200 p-4">
+                      <p className="text-xs font-semibold text-slate-500 mb-1">
+                        Date
+                      </p>
+                      <p className="font-bold text-[#111111]">
+                        {formatReadableDate(plan.input.eventDate)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#F5F7FA] border border-slate-200 p-4">
+                      <p className="text-xs font-semibold text-slate-500 mb-1">
+                        Guests
+                      </p>
+                      <p className="font-bold text-[#111111]">
+                        {plan.input.guests}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#F5F7FA] border border-slate-200 p-4">
+                      <p className="text-xs font-semibold text-slate-500 mb-1">
+                        Total Budget
+                      </p>
+                      <p className="font-bold text-[#111111]">
+                        {formatINR(plan.totalBudget)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#F5F7FA] border border-slate-200 p-4">
+                      <p className="text-xs font-semibold text-slate-500 mb-1">
+                        Readiness Score
+                      </p>
+                      <p className="font-bold text-[#111111]">
+                        {readinessScore}/100
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#F5F7FA] border border-slate-200 p-4">
+                      <p className="text-xs font-semibold text-slate-500 mb-1">
+                        Amount Spent
+                      </p>
+                      <p className="font-bold text-[#111111]">
+                        {formatINR(totalSpent)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#F5F7FA] border border-slate-200 p-4 sm:col-span-3">
+                      <p className="text-xs font-semibold text-slate-500 mb-1">
+                        Tasks Completed
+                      </p>
+                      <p className="font-bold text-[#111111]">
+                        {completedTaskCount} of {totalTaskCount}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row justify-center gap-3 no-print">
+                    <button
+                      type="button"
+                      onClick={handleCopyFullPlan}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0B1F4B] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#142a63] cursor-pointer"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Copy to WhatsApp
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handlePrint}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-[#F5F7FA] px-5 py-3 text-sm font-bold text-[#111111] transition hover:bg-slate-200 cursor-pointer"
+                    >
+                      <Printer className="h-4 w-4" />
+                      Print / Save PDF
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleResetToForm}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-[#0B1F4B] transition hover:bg-[#F5F7FA] cursor-pointer"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Plan Another Event
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Footer */}
             <div className="pt-8 pb-12 text-center text-xs text-slate-500 border-t border-slate-200">
-              <p>PlanPilot · Event Planning Assistant for First-Time Organizers in India</p>
-              <p className="mt-1">Budget estimates are approximate. Confirm prices with real quotes.</p>
+              <p>
+                PlanPilot · Event Planning Assistant for First-Time
+                Organizers in India
+              </p>
+              <p className="mt-1">
+                Budget estimates are approximate. Confirm prices with real
+                quotes.
+              </p>
             </div>
           </div>
         )}
