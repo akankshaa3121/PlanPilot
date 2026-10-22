@@ -1,0 +1,6 @@
+{
+  "name": "PlanPilot - AI Event Planning Assistant",
+  "description": "Smart, stress-free event planning assistant for first-time organizers in India. Generates balanced rupee budgets, countdown timelines, vendor checklists, and creative ideas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
