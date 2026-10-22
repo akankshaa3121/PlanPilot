@@ -6,7 +6,7 @@ Smart event planner for first-time organizers (clubs, families, teams).
 
 Smart event planner for first-time organizers (clubs, families, teams).
 
-**Live app:** https://planpilot-1-ork0.onrender.com
+**Live app:** https://planpilot-1-ork0.onrender.com/
 (Free hosting: the first load can take up to a minute.)
 
 ## Problem
