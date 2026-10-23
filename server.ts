@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -44,8 +44,7 @@ function calculateMilestoneDate(eventDateStr: string, daysBefore: number): strin
 }
 
 // Helper to call Gemini with retry on 503, 429, or high demand
-async function generateContentWithRetry(params: any, maxRetries = 3) {
-  let attempt = 0;
+async function generateContentWithRetry(params: any, maxRetries = 2) {  let attempt = 0;
   while (attempt <= maxRetries) {
     try {
       return await ai.models.generateContent(params);
@@ -125,18 +124,18 @@ Generate a comprehensive, tailored, realistic event master plan following these 
 
 1. LANGUAGE & TONE:
 - Use clean, simple, encouraging Indian-English that any first-timer can easily understand.
-- Keep amounts strictly in Indian Rupees (₹).
+- Keep amounts strictly in Indian Rupees (â‚¹).
 - Reflect realistic Indian vendor market dynamics in ${input.city}.
 
 2. BUDGET SPLIT (Section 1):
 - Provide 5 to 7 logical categories (e.g., Food & Refreshments, Venue Rental/Permissions, Sound & Music/AV, Theme Decor & Stage, Photography/Videography, Favors/Prizes/Invites, Emergency Buffer Reserve).
 - Amounts MUST be whole integer numbers that represent realistic proportions for this event type and city.
-- Note: It is vital that the amounts add up realistically to the total budget of ₹${input.budget}.
+- Note: It is vital that the amounts add up realistically to the total budget of â‚¹${input.budget}.
 - Provide practical cost-saving tips and 3-4 bullet sub-items for each category.
 
 3. COUNTDOWN TIMELINE (Section 2):
 - Count BACKWARD from event date.
-- If the event date is closer than the plan’s normal timeline (for example 28 days away, 14 days away, or shorter), compress the timeline so that NO task has a date in the past. The first task must be dated today or later.
+- If the event date is closer than the planâ€™s normal timeline (for example 28 days away, 14 days away, or shorter), compress the timeline so that NO task has a date in the past. The first task must be dated today or later.
 - Provide compressed milestones starting from today or later (e.g., if 28 days away, start at 28 days before down to Day of Event (0 days)).
 - Each milestone must have realistic, high-priority tasks tailored to college clubs/families/small teams in India (e.g. tasting menu, getting principal/college permission or society approval, testing sound cables, setting up WhatsApp broadcast group, buying water bottles/ice, advance vendor token payments).
 
@@ -144,7 +143,7 @@ Generate a comprehensive, tailored, realistic event master plan following these 
 - Include a vendor type for EVERY budget category that needs one (e.g., Catering/Food, Venue/Lawn, Sound & Music/DJ, Stage & Decor, Photography/Media, Favors/Printing/Gifts, Transport/Logistics). Only purely internal financial reserves (like Emergency Contingency Buffer) do not need a vendor.
 - Strictly vendor TYPES only (e.g. "Catering Vendor / Halwai / Dabbawala", "Banquet Hall / Lawn Manager", "DJ & Sound System Operator", "Decorator & Balloon / Flower Vendor", "Event Photographer / Campus Media Club", "Printer for Banners & ID Badges").
 - NEVER INVENT REAL VENDOR NAMES, REAL COMPANIES, OR PHONE NUMBERS!
-- Include approximate benchmark cost in ₹.
+- Include approximate benchmark cost in â‚¹.
 - Provide EXACTLY THREE critical suggested questions to ask each vendor before booking to avoid last-minute Indian wedding/fest surprises (e.g., generator power backup, hidden cleaning charges, corkage, overtime fees, cancellation refund policy).
 - Include 1 golden bargaining/negotiation organizer tip for that vendor.
 
@@ -281,8 +280,8 @@ Generate a comprehensive, tailored, realistic event master plan following these 
       } catch (err: any) {
         console.warn(`Model ${modelName} encountered error:`, err?.message || err);
         lastError = err;
-        // Wait 1.5s before fallback attempt
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        // Wait before trying the next model
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
     }
 
@@ -523,7 +522,7 @@ Generate a comprehensive, tailored, realistic event master plan following these 
 
     const createVendorForCategory = (cat: BudgetCategory, index: number): VendorChecklistItem => {
       const c = cat.name.toLowerCase();
-      const costStr = `≈ ₹${cat.amount.toLocaleString('en-IN')}`;
+      const costStr = `â‰ˆ â‚¹${cat.amount.toLocaleString('en-IN')}`;
 
       if (c.includes('food') || c.includes('cater') || c.includes('beverage') || c.includes('meal') || c.includes('refresh') || c.includes('snack')) {
         return {
@@ -762,7 +761,7 @@ ORIGINAL EVENT DETAILS:
 - City: ${originalPlan.input.city}, India
 - Date: ${originalPlan.input.eventDate}
 - Original Guests: ${originalPlan.input.guests}
-- Original Budget: ₹${originalPlan.totalBudget}
+- Original Budget: â‚¹${originalPlan.totalBudget}
 - Original Categories: ${JSON.stringify(originalPlan.budgetCategories.map((c: any) => ({ name: c.name, amount: c.amount })))}
 
 URGENT "WHAT IF?" SCENARIO:
@@ -776,7 +775,7 @@ Generate a concise, reassuring, practical "Plan B" in simple, plain English:
 3. BUDGET RATIONALE: 1 sentence explaining the financial adjustment.
 4. ADJUSTED BUDGET CATEGORIES:
    - Provide 4 to 6 revised categories that reflect this new reality (e.g. if it rains, shifting decor funds into waterproof canopy/indoor venue; if caterer cancels, emergency boxed meals or local halwai; if budget cut 20%, leaner menu).
-   - Amounts must realistically total ₹${targetBudget}.
+   - Amounts must realistically total â‚¹${targetBudget}.
 5. TIMELINE CHANGES:
    - 2 to 3 chronological urgent checkpoints (e.g. "Immediate (Next 2 Hours)", "24 Hours Before", "Event Day Arrival").
    - 2-3 specific action items per checkpoint.
@@ -909,9 +908,9 @@ Generate a concise, reassuring, practical "Plan B" in simple, plain English:
         const cutFactor = 0.8;
         responseText = JSON.stringify({
           scenarioTitle: "20% Budget Cut Smart Pivot",
-          summary: `Operating on ₹${targetBudget} is totally achievable without losing the party vibe. We preserve the DJ and delicious food while adopting smart DIY decor.`,
+          summary: `Operating on â‚¹${targetBudget} is totally achievable without losing the party vibe. We preserve the DJ and delicious food while adopting smart DIY decor.`,
           immediateNextStep: "Call your food caterer immediately to switch from an elaborate spread to a hearty 2-item street snack combo.",
-          budgetRationale: `Budget trimmed proportionally by 20% to ₹${targetBudget} while preserving core music and catering.`,
+          budgetRationale: `Budget trimmed proportionally by 20% to â‚¹${targetBudget} while preserving core music and catering.`,
           adjustedBudgetCategories: originalPlan.budgetCategories.map((c: any) => ({
             ...c,
             amount: Math.round(c.amount * cutFactor),
@@ -931,7 +930,7 @@ Generate a concise, reassuring, practical "Plan B" in simple, plain English:
           scenarioTitle: "Half the Guests Cancel (VIP Intimate Pivot)",
           summary: "A smaller crowd transforms your event into an exclusive, high-bonding celebration with personalized attention for everyone.",
           immediateNextStep: "Update your food vendor immediately with the reduced headcount to cut your per-plate billing.",
-          budgetRationale: `Variable expenses reduced to ₹${targetBudget}; fixed venue/sound retained for quality.`,
+          budgetRationale: `Variable expenses reduced to â‚¹${targetBudget}; fixed venue/sound retained for quality.`,
           adjustedBudgetCategories: originalPlan.budgetCategories.map((c: any) => {
             if (c.name.toLowerCase().includes('food') || c.name.toLowerCase().includes('gift')) {
               return { ...c, amount: Math.round(c.amount * 0.5), tips: "Halved quantity for 50% attendance." };
@@ -1013,7 +1012,7 @@ Generate a concise, reassuring, practical "Plan B" in simple, plain English:
         id: entry.origCat.id,
         name: entry.origCat.name, // EXACT SAME CATEGORY NAME AS ORIGINAL PLAN
         amount: Math.max(0, scaledAmount),
-        originalAmount: entry.origCat.amount, // "Was ₹X"
+        originalAmount: entry.origCat.amount, // "Was â‚¹X"
         percentage,
         color: entry.origCat.color || CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
         tips: entry.tips,
@@ -1243,10 +1242,10 @@ YOUR STRICT INSTRUCTIONS:
 
     const diffDesc =
       totalAmount <= budgetNum
-        ? `Fits within your planned budget with ₹${diff.toLocaleString('en-IN')} remaining.`
+        ? `Fits within your planned budget with â‚¹${diff.toLocaleString('en-IN')} remaining.`
         : status === 'slightly high'
-        ? `Slightly high by ₹${diff.toLocaleString('en-IN')} over your planned budget.`
-        : `Too high by ₹${diff.toLocaleString('en-IN')} over your planned budget.`;
+        ? `Slightly high by â‚¹${diff.toLocaleString('en-IN')} over your planned budget.`
+        : `Too high by â‚¹${diff.toLocaleString('en-IN')} over your planned budget.`;
 
     // Ensure exactly 3 negotiation points
     let points: [string, string, string] = [
