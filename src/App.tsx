@@ -97,30 +97,12 @@ export default function App() {
     `planpilot_payments_${p.input.eventType}_${p.input.eventDate}`;
 
   // Restore saved plan
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('planpilot_saved_plan');
-
-      if (saved) {
-        const parsed: EventPlan = JSON.parse(saved);
-
-        if (parsed.timeline && parsed.input?.eventDate) {
-          parsed.timeline = compressTimeline(
-            parsed.timeline,
-            parsed.input.eventDate
-          );
-        }
-
-        setPlan(parsed);
-
-        if (parsed.input) {
-          setCurrentInput(parsed.input);
-        }
-      }
-    } catch {
-      // Ignore invalid saved data
-    }
-  }, []);
+  
+       // Always show the event form when the website opens.
+useEffect(() => {
+  setPlan(null);
+  setShowFinishedSummary(false);
+}, []);
 
   // Restore completed tasks, vendors and payments
   useEffect(() => {
