@@ -44,7 +44,7 @@ function calculateMilestoneDate(eventDateStr: string, daysBefore: number): strin
 }
 
 // Helper to call Gemini with retry on 503, 429, or high demand
-async function generateContentWithRetry(params: any, maxRetries = 2) {  let attempt = 0;
+async function generateContentWithRetry(params: any, maxRetries = 0) {  let attempt = 0;
   while (attempt <= maxRetries) {
     try {
       return await ai.models.generateContent(params);
@@ -839,7 +839,7 @@ Generate a concise, reassuring, practical "Plan B" in simple, plain English:
 
     const systemInstruction = `You are PlanPilot, an encouraging, calm, crisis-management mentor for first-time event organizers in India. Provide realistic advice in simple English with rupee figures. Never invent fake business names or phone numbers.`;
 
-    const modelCandidates = ['gemini-3-flash-preview', 'gemini-3.8-flash', 'gemini-flash-latest'];
+    const modelCandidates = ['gemini-flash-latest'];
     let responseText = '';
     let lastError: any = null;
 
@@ -1378,3 +1378,5 @@ async function startServer() {
 }
 
 startServer();
+
+
